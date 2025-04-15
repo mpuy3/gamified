@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AR Molecular Shapes</title>
+    <title>AR VSEPR Ball and Stick Model</title>
     <style>
       body { margin: 0; overflow: hidden; }
       canvas { display: block; }
@@ -16,13 +16,16 @@
       import TWEEN from 'https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js';
 
       let scene, camera, renderer, controller;
-      const lobes = [];
-      const sphereRadius = 0.1;
-      let centralSphere, modelGroup;
-      const lobeDistance = 0.15;
+      const atoms = [];
+      const sticks = [];
+      const atomDistance = 0.2;
+      const sphereRadius = 0.05;
+      let centralSphere;
+      let touchStart = null;
 
       const raycaster = new THREE.Raycaster();
       const tap = new THREE.Vector2();
+      const group = new THREE.Group();
 
       init();
 
@@ -41,22 +44,21 @@
         scene.add(light);
 
         controller = renderer.xr.getController(0);
-        controller.addEventListener('select', () => {});
+        controller.addEventListener('select', onSelect);
         scene.add(controller);
 
         window.addEventListener('click', onClick);
-        setupTouchRotation();
-
-        modelGroup = new THREE.Group();
-        scene.add(modelGroup);
-
-        centralSphere = createSphere(new THREE.Vector3(0, 0, -0.5), 0x3366ff);
-        modelGroup.add(centralSphere);
+        window.addEventListener('touchstart', onTouchStart, false);
+        window.addEventListener('touchmove', onTouchMove, false);
 
         renderer.setAnimationLoop(() => {
           TWEEN.update();
           renderer.render(scene, camera);
         });
+
+        centralSphere = createSphere(new THREE.Vector3(0, 0, -0.5), 0x0000ff);
+        group.add(centralSphere);
+        scene.add(group);
       }
 
       function createSphere(position, color = 0xff0000, radius = sphereRadius) {
@@ -67,87 +69,20 @@
         return sphere;
       }
 
-      function createLobe() {
-        if (lobes.length >= 6) return;
+      function createStick(start, end) {
+        const direction = new THREE.Vector3().subVectors(end, start);
+        const length = direction.length();
+        const geometry = new THREE.CylinderGeometry(0.005, 0.005, length, 8);
+        const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const stick = new THREE.Mesh(geometry, material);
 
-        const lobe = new THREE.Mesh(
-          new THREE.SphereGeometry(0.035, 16, 16).scale(1, 2.2, 1),
-          new THREE.MeshStandardMaterial({ color: 0xff6699 })
+        stick.position.copy(start).add(end).multiplyScalar(0.5);
+        stick.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          direction.clone().normalize()
         );
-        lobe.userData.isLobe = true;
-        lobe.scale.set(0.01, 0.01, 0.01);
-        modelGroup.add(lobe);
-        lobes.push(lobe);
 
-        new TWEEN.Tween(lobe.scale)
-          .to({ x: 1, y: 1, z: 1 }, 300)
-          .easing(TWEEN.Easing.Quadratic.Out)
-          .start();
-
-        updateLobePositions();
-      }
-
-      function removeLobe(lobe) {
-        const index = lobes.indexOf(lobe);
-        if (index > -1) {
-          lobes.splice(index, 1);
-          new TWEEN.Tween(lobe.scale)
-            .to({ x: 0.01, y: 0.01, z: 0.01 }, 300)
-            .easing(TWEEN.Easing.Quadratic.In)
-            .onComplete(() => modelGroup.remove(lobe))
-            .start();
-
-          updateLobePositions();
-        }
-      }
-
-      function updateLobePositions() {
-        const directions = getLobeDirections(lobes.length);
-
-        lobes.forEach((lobe, i) => {
-          const dir = directions[i];
-          const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(lobeDistance));
-          new TWEEN.Tween(lobe.position)
-            .to({ x: pos.x, y: pos.y, z: pos.z }, 300)
-            .easing(TWEEN.Easing.Quadratic.Out)
-            .start();
-
-          const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-          lobe.quaternion.copy(quat);
-        });
-      }
-
-      function getLobeDirections(count) {
-        const up = new THREE.Vector3(0, 1, 0);
-        const directions = [];
-
-        switch (count) {
-          case 1:
-            directions.push(up);
-            break;
-          case 2:
-            directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0));
-            break;
-          case 3:
-            directions.push(up);
-            directions.push(new THREE.Vector3(-Math.sqrt(3)/2, -0.5, 0));
-            directions.push(new THREE.Vector3(Math.sqrt(3)/2, -0.5, 0));
-            break;
-          case 4:
-            directions.push(new THREE.Vector3(1, 1, 1), new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, -1, -1), new THREE.Vector3(-1, 1, -1).normalize());
-            break;
-          case 5:
-            directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-0.5, 0, Math.sqrt(3)/2), new THREE.Vector3(-0.5, 0, -Math.sqrt(3)/2));
-            directions.push(up, up.clone().negate());
-            break;
-          case 6:
-            directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
-                             new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
-                             new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1));
-            break;
-        }
-
-        return directions.map(v => v.clone().normalize());
+        return stick;
       }
 
       function onClick(event) {
@@ -155,38 +90,121 @@
 
         tap.x = (event.clientX / window.innerWidth) * 2 - 1;
         tap.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
         raycaster.setFromCamera(tap, camera);
-        const intersects = raycaster.intersectObjects([centralSphere, ...lobes]);
+        const intersects = raycaster.intersectObjects([centralSphere, ...atoms]);
 
         if (intersects.length > 0) {
           const intersect = intersects[0];
-          if (intersect.object === centralSphere) {
-            createLobe();
-          } else if (intersect.object.userData.isLobe) {
-            removeLobe(intersect.object);
+
+          if (intersect.object === centralSphere && atoms.length < 6) {
+            const directions = getVSEPRDirections(atoms.length + 1);
+            updateGeometry(directions);
+          } else {
+            const index = atoms.indexOf(intersect.object);
+            if (index > -1) {
+              group.remove(atoms[index]);
+              group.remove(sticks[index]);
+              atoms.splice(index, 1);
+              sticks.splice(index, 1);
+              const directions = getVSEPRDirections(atoms.length);
+              updateGeometry(directions);
+            }
           }
         }
       }
 
-      function setupTouchRotation() {
-        let prevTouches = [];
-
-        renderer.domElement.addEventListener('touchmove', (e) => {
-          if (e.touches.length === 2 && prevTouches.length === 2) {
-            const dx = e.touches[0].clientX - prevTouches[0].clientX;
-            const dy = e.touches[0].clientY - prevTouches[0].clientY;
-
-            const angle = dx * 0.01;
-            modelGroup.rotation.y += angle;
+      function getVSEPRDirections(count) {
+        const directions = [];
+        switch (count) {
+          case 1:
+            directions.push(new THREE.Vector3(0, 1, 0));
+            break;
+          case 2:
+            directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0));
+            break;
+          case 3:
+            directions.push(
+              new THREE.Vector3(0, 1, 0),
+              new THREE.Vector3(Math.sqrt(3) / 2, -0.5, 0),
+              new THREE.Vector3(-Math.sqrt(3) / 2, -0.5, 0)
+            );
+            break;
+          case 4: {
+            const angle = Math.acos(-1 / 3);
+            directions.push(
+              new THREE.Vector3(0, 1, 0),
+              new THREE.Vector3(Math.sin(angle), -Math.cos(angle), 0),
+              new THREE.Vector3(-Math.sin(angle) * Math.cos(Math.PI / 3), -Math.cos(angle), Math.sin(angle) * Math.sin(Math.PI / 3)),
+              new THREE.Vector3(-Math.sin(angle) * Math.cos(Math.PI / 3), -Math.cos(angle), -Math.sin(angle) * Math.sin(Math.PI / 3))
+            );
+            break;
           }
-          prevTouches = [...e.touches];
-        });
+          case 5:
+            directions.push(
+              new THREE.Vector3(0, 1, 0),
+              new THREE.Vector3(1, 0, 0),
+              new THREE.Vector3(-1, 0, 0),
+              new THREE.Vector3(0, 0, 1),
+              new THREE.Vector3(0, 0, -1)
+            );
+            break;
+          case 6:
+            directions.push(
+              new THREE.Vector3(1, 0, 0),
+              new THREE.Vector3(-1, 0, 0),
+              new THREE.Vector3(0, 1, 0),
+              new THREE.Vector3(0, -1, 0),
+              new THREE.Vector3(0, 0, 1),
+              new THREE.Vector3(0, 0, -1)
+            );
+            break;
+        }
+        return directions;
+      }
 
-        renderer.domElement.addEventListener('touchend', () => {
-          prevTouches = [];
+      function updateGeometry(directions) {
+        atoms.forEach(atom => group.remove(atom));
+        sticks.forEach(stick => group.remove(stick));
+        atoms.length = 0;
+        sticks.length = 0;
+
+        directions.forEach(dir => {
+          const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(atomDistance));
+          const atom = createSphere(pos, 0xff0000, 0.025);
+          const stick = createStick(centralSphere.position, pos);
+          group.add(atom);
+          group.add(stick);
+          atoms.push(atom);
+          sticks.push(stick);
         });
       }
 
+      function onTouchStart(e) {
+        if (e.touches.length === 2) {
+          touchStart = [e.touches[0].clientX, e.touches[1].clientX];
+        } else if (e.touches.length === 1) {
+          touchStart = [e.touches[0].clientX, e.touches[0].clientY];
+        }
+      }
+
+      function onTouchMove(e) {
+        if (e.touches.length === 2 && touchStart) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const prevDx = touchStart[0] - touchStart[1];
+          const delta = (dx - prevDx) * 0.005;
+          group.rotation.y += delta;
+          touchStart = [e.touches[0].clientX, e.touches[1].clientX];
+        } else if (e.touches.length === 1 && touchStart) {
+          const deltaX = e.touches[0].clientX - touchStart[0];
+          const deltaY = e.touches[0].clientY - touchStart[1];
+          group.rotation.y += deltaX * 0.005;
+          group.rotation.x += deltaY * 0.005;
+          touchStart = [e.touches[0].clientX, e.touches[0].clientY];
+        }
+      }
+
+      function onSelect() {}
     </script>
   </body>
 </html>
