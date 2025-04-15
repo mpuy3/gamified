@@ -1,229 +1,236 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AR Molecular Shapes</title>
-  <style>
-    body { 
-        margin: 0;
-        height: 100vh;
-        width: 100vw;
-    }
-    canvas { 
-    display: block; 
-    height: 100vh;
-    width: 100vw;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AR Molecular Shapes</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            width: 100vw;
+        }
 
-    #addLobeBtn {
-      position: absolute;
-      bottom: 10%;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      padding: 12px 20px;
-      font-size: 16px;
-      background: #ffd700;
-      color: #000;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      display: block;
-      pointer-events: auto;
-    }
-  </style>
+        canvas {
+            display: block;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #addLobeBtn {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            padding: 12px 20px;
+            font-size: 16px;
+            background: #ffd700;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none;
+            pointer-events: auto;
+        }
+    </style>
 </head>
+
 <body>
-  <button id="addLobeBtn">Add Lobe</button>
+    <button id="addLobeBtn">Add Lobe</button>
 
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-    import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
-    import TWEEN from 'https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js';
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+        import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
+        import TWEEN from 'https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js';
 
-    let scene, camera, renderer, controller;
-    const lobes = [];
-    const sphereRadius = 0.1;
-    let centralSphere, modelGroup;
-    const lobeDistance = 0.15;
-    const raycaster = new THREE.Raycaster();
-    const tap = new THREE.Vector2();
+        let scene, camera, renderer, controller;
+        const lobes = [];
+        const sphereRadius = 0.1;
+        let centralSphere, modelGroup;
+        const lobeDistance = 0.15;
+        const raycaster = new THREE.Raycaster();
+        const tap = new THREE.Vector2();
 
-    init();
+        init();
 
-    function init() {
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.xr.enabled = true;
-      document.body.appendChild(renderer.domElement);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
 
-      document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+            document.body.appendChild(ARButton.createButton(renderer, {
+                requiredFeatures: ['hit-test', 'dom-overlay'],
+                domOverlay: { root: document.body }
+            }));
 
-      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-      scene.add(light);
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            scene.add(light);
 
-      controller = renderer.xr.getController(0);
-      controller.addEventListener('select', () => {});
-      scene.add(controller);
+            controller = renderer.xr.getController(0);
+            controller.addEventListener('select', () => { });
+            scene.add(controller);
 
-      window.addEventListener('click', onClick);
-      setupTouchRotation();
+            window.addEventListener('click', onClick);
+            setupTouchRotation();
 
-      modelGroup = new THREE.Group();
-      scene.add(modelGroup);
+            modelGroup = new THREE.Group();
+            scene.add(modelGroup);
 
-      centralSphere = createSphere(new THREE.Vector3(0, 0, -0.5), 0xff0000); // red central atom
-      modelGroup.add(centralSphere);
+            centralSphere = createSphere(new THREE.Vector3(0, 0, -0.5), 0xff0000); // red central atom
+            modelGroup.add(centralSphere);
 
-      renderer.setAnimationLoop(() => {
-        TWEEN.update();
-        renderer.render(scene, camera);
-      });
+            renderer.setAnimationLoop(() => {
+                TWEEN.update();
+                renderer.render(scene, camera);
+            });
 
-      const addLobeBtn = document.getElementById('addLobeBtn');
-      addLobeBtn.addEventListener('click', createLobe);
+            const addLobeBtn = document.getElementById('addLobeBtn');
+            addLobeBtn.addEventListener('click', createLobe);
 
-      // Ensure button shows after AR session begins
-      renderer.xr.addEventListener('sessionstart', () => {
-        setTimeout(() => {
-          addLobeBtn.style.display = 'block';
-        }, 500);
-      });
+            // Ensure button shows after AR session begins
+            renderer.xr.addEventListener('sessionstart', () => {
+                setTimeout(() => {
+                    addLobeBtn.style.display = 'block';
+                }, 500);
+            });
 
-      renderer.xr.addEventListener('sessionend', () => {
-        addLobeBtn.style.display = 'none';
-      });
-    }
-
-    function createSphere(position, color = 0xff0000, radius = sphereRadius) {
-      const geometry = new THREE.SphereGeometry(radius, 32, 32);
-      const material = new THREE.MeshStandardMaterial({ color });
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.position.copy(position);
-      return sphere;
-    }
-
-    function createLobe() {
-      if (lobes.length >= 6) return;
-
-      const lobe = new THREE.Mesh(
-        new THREE.SphereGeometry(0.035, 16, 16).scale(1, 2.2, 1),
-        new THREE.MeshStandardMaterial({ color: 0xffff00 }) // yellow lobes
-      );
-      lobe.userData.isLobe = true;
-      lobe.scale.set(0.01, 0.01, 0.01);
-      modelGroup.add(lobe);
-      lobes.push(lobe);
-
-      new TWEEN.Tween(lobe.scale)
-        .to({ x: 1, y: 1, z: 1 }, 300)
-        .easing(TWEEN.Easing.Quadratic.Out)
-        .start();
-
-      updateLobePositions();
-    }
-
-    function removeLobe(lobe) {
-      const index = lobes.indexOf(lobe);
-      if (index > -1) {
-        lobes.splice(index, 1);
-        new TWEEN.Tween(lobe.scale)
-          .to({ x: 0.01, y: 0.01, z: 0.01 }, 300)
-          .easing(TWEEN.Easing.Quadratic.In)
-          .onComplete(() => modelGroup.remove(lobe))
-          .start();
-
-        updateLobePositions();
-      }
-    }
-
-    function updateLobePositions() {
-      const directions = getLobeDirections(lobes.length);
-
-      lobes.forEach((lobe, i) => {
-        const dir = directions[i];
-        const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(lobeDistance));
-        new TWEEN.Tween(lobe.position)
-          .to({ x: pos.x, y: pos.y, z: pos.z }, 300)
-          .easing(TWEEN.Easing.Quadratic.Out)
-          .start();
-
-        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-        lobe.quaternion.copy(quat);
-      });
-    }
-
-    function getLobeDirections(count) {
-      const up = new THREE.Vector3(0, 1, 0);
-      const directions = [];
-
-      switch (count) {
-        case 1:
-          directions.push(up);
-          break;
-        case 2:
-          directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0));
-          break;
-        case 3:
-          directions.push(up);
-          directions.push(new THREE.Vector3(-Math.sqrt(3)/2, -0.5, 0));
-          directions.push(new THREE.Vector3(Math.sqrt(3)/2, -0.5, 0));
-          break;
-        case 4:
-          directions.push(new THREE.Vector3(1, 1, 1), new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, -1, -1), new THREE.Vector3(-1, 1, -1).normalize());
-          break;
-        case 5:
-          directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-0.5, 0, Math.sqrt(3)/2), new THREE.Vector3(-0.5, 0, -Math.sqrt(3)/2));
-          directions.push(up, up.clone().negate());
-          break;
-        case 6:
-          directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
-                          new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
-                          new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1));
-          break;
-      }
-
-      return directions.map(v => v.clone().normalize());
-    }
-
-    function onClick(event) {
-      if (!renderer.xr.isPresenting) return;
-
-      tap.x = (event.clientX / window.innerWidth) * 2 - 1;
-      tap.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      raycaster.setFromCamera(tap, camera);
-      const intersects = raycaster.intersectObjects([centralSphere, ...lobes]);
-
-      if (intersects.length > 0) {
-        const intersect = intersects[0];
-        if (intersect.object.userData.isLobe) {
-          removeLobe(intersect.object);
+            renderer.xr.addEventListener('sessionend', () => {
+                addLobeBtn.style.display = 'none';
+            });
         }
-      }
-    }
 
-    function setupTouchRotation() {
-      let prevTouches = [];
-
-      renderer.domElement.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && prevTouches.length === 2) {
-          const dx = e.touches[0].clientX - prevTouches[0].clientX;
-          const dy = e.touches[0].clientY - prevTouches[0].clientY;
-
-          const angle = dx * 0.01;
-          modelGroup.rotation.y += angle;
+        function createSphere(position, color = 0xff0000, radius = sphereRadius) {
+            const geometry = new THREE.SphereGeometry(radius, 32, 32);
+            const material = new THREE.MeshStandardMaterial({ color });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.copy(position);
+            return sphere;
         }
-        prevTouches = [...e.touches];
-      });
 
-      renderer.domElement.addEventListener('touchend', () => {
-        prevTouches = [];
-      });
-    }
-  </script>
+        function createLobe() {
+            if (lobes.length >= 6) return;
+
+            const lobe = new THREE.Mesh(
+                new THREE.SphereGeometry(0.035, 16, 16).scale(1, 2.2, 1),
+                new THREE.MeshStandardMaterial({ color: 0xffff00 }) // yellow lobes
+            );
+            lobe.userData.isLobe = true;
+            lobe.scale.set(0.01, 0.01, 0.01);
+            modelGroup.add(lobe);
+            lobes.push(lobe);
+
+            new TWEEN.Tween(lobe.scale)
+                .to({ x: 1, y: 1, z: 1 }, 300)
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+
+            updateLobePositions();
+        }
+
+        function removeLobe(lobe) {
+            const index = lobes.indexOf(lobe);
+            if (index > -1) {
+                lobes.splice(index, 1);
+                new TWEEN.Tween(lobe.scale)
+                    .to({ x: 0.01, y: 0.01, z: 0.01 }, 300)
+                    .easing(TWEEN.Easing.Quadratic.In)
+                    .onComplete(() => modelGroup.remove(lobe))
+                    .start();
+
+                updateLobePositions();
+            }
+        }
+
+        function updateLobePositions() {
+            const directions = getLobeDirections(lobes.length);
+
+            lobes.forEach((lobe, i) => {
+                const dir = directions[i];
+                const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(lobeDistance));
+                new TWEEN.Tween(lobe.position)
+                    .to({ x: pos.x, y: pos.y, z: pos.z }, 300)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .start();
+
+                const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+                lobe.quaternion.copy(quat);
+            });
+        }
+
+        function getLobeDirections(count) {
+            const up = new THREE.Vector3(0, 1, 0);
+            const directions = [];
+
+            switch (count) {
+                case 1:
+                    directions.push(up);
+                    break;
+                case 2:
+                    directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0));
+                    break;
+                case 3:
+                    directions.push(up);
+                    directions.push(new THREE.Vector3(-Math.sqrt(3) / 2, -0.5, 0));
+                    directions.push(new THREE.Vector3(Math.sqrt(3) / 2, -0.5, 0));
+                    break;
+                case 4:
+                    directions.push(new THREE.Vector3(1, 1, 1), new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, -1, -1), new THREE.Vector3(-1, 1, -1).normalize());
+                    break;
+                case 5:
+                    directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-0.5, 0, Math.sqrt(3) / 2), new THREE.Vector3(-0.5, 0, -Math.sqrt(3) / 2));
+                    directions.push(up, up.clone().negate());
+                    break;
+                case 6:
+                    directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
+                        new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
+                        new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1));
+                    break;
+            }
+
+            return directions.map(v => v.clone().normalize());
+        }
+
+        function onClick(event) {
+            if (!renderer.xr.isPresenting) return;
+
+            tap.x = (event.clientX / window.innerWidth) * 2 - 1;
+            tap.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(tap, camera);
+            const intersects = raycaster.intersectObjects([centralSphere, ...lobes]);
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                if (intersect.object.userData.isLobe) {
+                    removeLobe(intersect.object);
+                }
+            }
+        }
+
+        function setupTouchRotation() {
+            let prevTouches = [];
+
+            renderer.domElement.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2 && prevTouches.length === 2) {
+                    const dx = e.touches[0].clientX - prevTouches[0].clientX;
+                    const dy = e.touches[0].clientY - prevTouches[0].clientY;
+
+                    const angle = dx * 0.01;
+                    modelGroup.rotation.y += angle;
+                }
+                prevTouches = [...e.touches];
+            });
+
+            renderer.domElement.addEventListener('touchend', () => {
+                prevTouches = [];
+            });
+        }
+    </script>
 </body>
+
 </html>
