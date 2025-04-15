@@ -64,18 +64,23 @@
         return sphere;
       }
 
-      function createLobe(position) {
-        const geometry = new THREE.SphereGeometry(0.025, 16, 16);
-        geometry.scale(1, 1.8, 1); // Make it more oblong
+      function createLobe(position, direction) {
+        const geometry = new THREE.SphereGeometry(0.035, 16, 16); // Bigger lobe
+        geometry.scale(1, 2.2, 1); // More elongated
         const material = new THREE.MeshStandardMaterial({ color: 0xff6699 });
         const lobe = new THREE.Mesh(geometry, material);
         lobe.userData.isLobe = true;
+
+        // Orient the lobe so its long axis (Y) aligns with the direction
+        const up = new THREE.Vector3(0, 1, 0);
+        const quat = new THREE.Quaternion().setFromUnitVectors(up, direction.clone().normalize());
+        lobe.quaternion.copy(quat);
+
         lobe.position.copy(position);
         lobe.scale.set(0.01, 0.01, 0.01);
         scene.add(lobe);
         lobes.push(lobe);
 
-        // Animate scale up
         new TWEEN.Tween(lobe.scale)
           .to({ x: 1, y: 1, z: 1 }, 300)
           .easing(TWEEN.Easing.Quadratic.Out)
@@ -96,8 +101,8 @@
 
           if (intersect.object === centralSphere && lobes.length < 8) {
             const localPoint = intersect.point.clone().sub(centralSphere.position).normalize();
-            const lobePos = centralSphere.position.clone().add(localPoint.multiplyScalar(lobeDistance));
-            createLobe(lobePos);
+            const lobePos = centralSphere.position.clone().add(localPoint.clone().multiplyScalar(lobeDistance));
+            createLobe(lobePos, localPoint);
             repelLobes3D();
           } else if (intersect.object.userData.isLobe) {
             const index = lobes.indexOf(intersect.object);
@@ -105,7 +110,6 @@
               const lobe = lobes[index];
               lobes.splice(index, 1);
 
-              // Animate scale down before removing
               new TWEEN.Tween(lobe.scale)
                 .to({ x: 0.01, y: 0.01, z: 0.01 }, 300)
                 .easing(TWEEN.Easing.Quadratic.In)
@@ -129,18 +133,24 @@
         lobes.forEach((lobe, i) => {
           const index = i + 1;
           const phi = Math.acos(-1 + (2 * index) / (count + 1));
-          const theta = Math.PI * (1 + Math.sqrt(5)) * index; // golden angle in radians
+          const theta = Math.PI * (1 + Math.sqrt(5)) * index; // golden angle
 
           const x = Math.cos(theta) * Math.sin(phi);
           const y = Math.sin(theta) * Math.sin(phi);
           const z = Math.cos(phi);
 
-          const targetPos = centralSphere.position.clone().add(new THREE.Vector3(x, y, z).multiplyScalar(lobeDistance));
+          const direction = new THREE.Vector3(x, y, z).normalize();
+          const targetPos = centralSphere.position.clone().add(direction.clone().multiplyScalar(lobeDistance));
 
           new TWEEN.Tween(lobe.position)
             .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 300)
             .easing(TWEEN.Easing.Quadratic.Out)
             .start();
+
+          // Also rotate to align to new direction
+          const up = new THREE.Vector3(0, 1, 0);
+          const quat = new THREE.Quaternion().setFromUnitVectors(up, direction);
+          lobe.quaternion.copy(quat);
         });
       }
     </script>
