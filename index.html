@@ -18,7 +18,7 @@
       let scene, camera, renderer, controller;
       const atoms = [];
       const sticks = [];
-      const atomDistance = 0.2;
+      const atomDistance = 0.1;
       const sphereRadius = 0.05;
       let centralSphere;
       let touchStart = null;
@@ -71,13 +71,12 @@
 
       function createStick(start, end) {
         const direction = new THREE.Vector3().subVectors(end, start);
-        const length = direction.length() * 0.5; // shorten stick to half
+        const length = direction.length();
         const geometry = new THREE.CylinderGeometry(0.005, 0.005, length, 8);
         const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
         const stick = new THREE.Mesh(geometry, material);
 
-        const mid = start.clone().add(direction.clone().normalize().multiplyScalar(length / 2));
-        stick.position.copy(mid);
+        stick.position.copy(start).add(end).multiplyScalar(0.5);
         stick.quaternion.setFromUnitVectors(
           new THREE.Vector3(0, 1, 0),
           direction.clone().normalize()
@@ -122,21 +121,21 @@
             directions.push(new THREE.Vector3(0, 1, 0));
             break;
           case 2:
-            directions.push(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0));
+            directions.push(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 1));
             break;
           case 3:
             directions.push(
               new THREE.Vector3(0, 1, 0),
-              new THREE.Vector3(Math.sqrt(3) / 2, 0, -0.5),
-              new THREE.Vector3(-Math.sqrt(3) / 2, 0, -0.5)
+              new THREE.Vector3(Math.sqrt(3) / 2, -0.5, 0),
+              new THREE.Vector3(-Math.sqrt(3) / 2, -0.5, 0)
             );
             break;
           case 4:
             directions.push(
               new THREE.Vector3(0, 1, 0),
-              new THREE.Vector3(1, 0, 0),
-              new THREE.Vector3(-1, 0, 0),
-              new THREE.Vector3(0, 0, -1)
+              new THREE.Vector3(1, -1, 1).normalize(),
+              new THREE.Vector3(-1, -1, 1).normalize(),
+              new THREE.Vector3(0, -1, -1).normalize()
             );
             break;
           case 5:
@@ -150,10 +149,10 @@
             break;
           case 6:
             directions.push(
-              new THREE.Vector3(0, 1, 0),
-              new THREE.Vector3(0, -1, 0),
               new THREE.Vector3(1, 0, 0),
               new THREE.Vector3(-1, 0, 0),
+              new THREE.Vector3(0, 1, 0),
+              new THREE.Vector3(0, -1, 0),
               new THREE.Vector3(0, 0, 1),
               new THREE.Vector3(0, 0, -1)
             );
@@ -169,9 +168,12 @@
         sticks.length = 0;
 
         directions.forEach(dir => {
-          const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(atomDistance));
-          const atom = createSphere(pos, 0xff0000, 0.025);
-          const stick = createStick(centralSphere.position, pos);
+          const stickEnd = centralSphere.position.clone().add(dir.clone().multiplyScalar(atomDistance));
+          const stickMid = centralSphere.position.clone().add(dir.clone().multiplyScalar(atomDistance / 2));
+
+          const atom = createSphere(stickEnd, 0xff0000, 0.025);
+          const stick = createStick(centralSphere.position, stickEnd);
+
           group.add(atom);
           group.add(stick);
           atoms.push(atom);
