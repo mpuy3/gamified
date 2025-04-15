@@ -18,13 +18,16 @@
             width: 100vw;
         }
 
-        #addLobeBtn,
-        #addCylinderBtn {
+        #buttonBar {
             position: absolute;
             bottom: 10%;
             left: 50%;
             transform: translateX(-50%);
             z-index: 9999;
+            display: none;
+        }
+
+        #buttonBar button {
             padding: 12px 20px;
             font-size: 16px;
             background: #ffd700;
@@ -32,20 +35,26 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            display: none;
+            
             pointer-events: auto;
             margin: 5px;
         }
 
-        #addCylinderBtn {
-            left: calc(50% + 100px); /* Move cylinder button to the right */
+        #addLobeBtn {
+            background-color: yellow;
         }
+        #addCylinderBtn {
+            background-color: white;
+        }
+
     </style>
 </head>
 
 <body>
-    <button id="addLobeBtn">Add Lobe</button>
-    <button id="addCylinderBtn">Add Cylinder</button>
+    <div id="buttonBar">
+        <button id="addLobeBtn">Add Lobe</button>
+        <button id="addCylinderBtn">Add Cylinder</button>
+    </div>
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -99,6 +108,7 @@
 
             const addLobeBtn = document.getElementById('addLobeBtn');
             const addCylinderBtn = document.getElementById('addCylinderBtn');
+            const buttonBar = document.getElementById('buttonBar');
 
             addLobeBtn.addEventListener('click', () => createDomain('lobe'));
             addCylinderBtn.addEventListener('click', () => createDomain('cylinder'));
@@ -106,14 +116,12 @@
             // Ensure buttons show after AR session begins
             renderer.xr.addEventListener('sessionstart', () => {
                 setTimeout(() => {
-                    addLobeBtn.style.display = 'block';
-                    addCylinderBtn.style.display = 'block';
+                    buttonBar.style.display = 'flex';
                 }, 500);
             });
 
             renderer.xr.addEventListener('sessionend', () => {
-                addLobeBtn.style.display = 'none';
-                addCylinderBtn.style.display = 'none';
+                buttonBar.style.display = 'none';
             });
         }
 
