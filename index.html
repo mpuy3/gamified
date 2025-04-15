@@ -84,19 +84,42 @@
             const lobe = new THREE.Mesh(geometry, material);
             lobe.userData.isLobe = true;
 
-            // Cylinder by default points up (along Y); center it
+            // Cylinder by default points along the Y-axis; center it
             lobe.geometry.translate(0, length / 2, 0);
 
             lobe.scale.set(0.01, 0.01, 0.01);
             modelGroup.add(lobe);
             lobes.push(lobe);
 
+            // Smoothly scale the lobe from its tiny starting size to full size
             new TWEEN.Tween(lobe.scale)
                 .to({ x: 1, y: 1, z: 1 }, 300)
                 .easing(TWEEN.Easing.Quadratic.Out)
                 .start();
 
             updateLobePositions();
+        }
+
+        function updateLobePositions() {
+            const directions = getLobeDirections(lobes.length);
+
+            lobes.forEach((lobe, i) => {
+                const dir = directions[i];
+
+                // Calculate position relative to the sphere's surface
+                // Position the lobe's base at the sphere's surface (radius * direction)
+                const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(sphereRadius + lobeDistance));
+
+                // Update the position of the lobe with tweening for smooth animation
+                new TWEEN.Tween(lobe.position)
+                    .to({ x: pos.x, y: pos.y, z: pos.z }, 300)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .start();
+
+                // Rotate the lobe to face the direction vector
+                const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+                lobe.quaternion.copy(quat);
+            });
         }
 
         function removeLobe(lobe) {
@@ -112,28 +135,6 @@
                 updateLobePositions();
             }
         }
-
-        function updateLobePositions() {
-            const directions = getLobeDirections(lobes.length);
-
-            lobes.forEach((lobe, i) => {
-                const dir = directions[i];
-                // Calculate position relative to the sphere
-                const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(lobeDistance));
-
-                // Update the position of the lobe with tweening for smooth animation
-                new TWEEN.Tween(lobe.position)
-                    .to({ x: pos.x, y: pos.y, z: pos.z }, 300)
-                    .easing(TWEEN.Easing.Quadratic.Out)
-                    .start();
-
-                // Rotate the lobe to face the direction vector (normalizing the direction)
-                const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-                lobe.quaternion.copy(quat);
-            });
-        }
-
-
 
         function getLobeDirections(count) {
             const up = new THREE.Vector3(0, 1, 0);
