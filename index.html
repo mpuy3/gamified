@@ -127,11 +127,12 @@
                     .easing(TWEEN.Easing.Quadratic.Out)
                     .start();
 
-                // Rotate the lobe to face the direction vector
+                // Rotate the lobe to face the direction vector (normalizing the direction)
                 const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
                 lobe.quaternion.copy(quat);
             });
         }
+
 
 
         function getLobeDirections(count) {
