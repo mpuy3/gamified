@@ -63,10 +63,21 @@
       }
 
       function createLobe(position) {
-        const lobe = createSphere(position, 0xff6699, 0.05);
+        const geometry = new THREE.SphereGeometry(0.025, 16, 16);
+        geometry.scale(1, 1.8, 1); // Make it more oblong
+        const material = new THREE.MeshStandardMaterial({ color: 0xff6699 });
+        const lobe = new THREE.Mesh(geometry, material);
         lobe.userData.isLobe = true;
+        lobe.position.copy(position);
+        lobe.scale.set(0.01, 0.01, 0.01);
         scene.add(lobe);
         lobes.push(lobe);
+
+        // Animate scale up
+        new THREE.Tween(lobe.scale)
+          .to({ x: 1, y: 1, z: 1 }, 300)
+          .easing(THREE.Easing.Quadratic.Out)
+          .start();
       }
 
       function onClick(event) {
@@ -81,18 +92,24 @@
         if (intersects.length > 0) {
           const intersect = intersects[0];
 
-          if (intersect.object === centralSphere) {
-            // Add a lobe in the direction of the tap
+          if (intersect.object === centralSphere && lobes.length < 8) {
             const localPoint = intersect.point.clone().sub(centralSphere.position).normalize();
             const lobePos = centralSphere.position.clone().add(localPoint.multiplyScalar(lobeDistance));
             createLobe(lobePos);
             repelLobes3D();
           } else if (intersect.object.userData.isLobe) {
-            // Remove the tapped lobe
             const index = lobes.indexOf(intersect.object);
             if (index > -1) {
-              scene.remove(lobes[index]);
+              const lobe = lobes[index];
               lobes.splice(index, 1);
+
+              // Animate scale down before removing
+              new THREE.Tween(lobe.scale)
+                .to({ x: 0.01, y: 0.01, z: 0.01 }, 300)
+                .easing(THREE.Easing.Quadratic.In)
+                .onComplete(() => scene.remove(lobe))
+                .start();
+
               repelLobes3D();
             }
           }
@@ -105,20 +122,32 @@
 
       function repelLobes3D() {
         const count = lobes.length;
-        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+        if (count === 0) return;
 
         lobes.forEach((lobe, i) => {
-          const theta = goldenAngle * i;
-          const y = 1 - (i / (count - 1)) * 2; // y from 1 to -1
-          const radius = Math.sqrt(1 - y * y); // radius at y
+          const index = i + 1;
+          const phi = Math.acos(-1 + (2 * index) / (count + 1));
+          const theta = Math.sqrt((count + 1) * Math.PI) * phi;
 
-          const x = Math.cos(theta) * radius;
-          const z = Math.sin(theta) * radius;
+          const x = Math.cos(theta) * Math.sin(phi);
+          const y = Math.sin(theta) * Math.sin(phi);
+          const z = Math.cos(phi);
 
-          const position = new THREE.Vector3(x, y, z).multiplyScalar(lobeDistance);
-          lobe.position.copy(centralSphere.position.clone().add(position));
+          const targetPos = centralSphere.position.clone().add(new THREE.Vector3(x, y, z).multiplyScalar(lobeDistance));
+
+          new THREE.Tween(lobe.position)
+            .to(targetPos, 300)
+            .easing(THREE.Easing.Quadratic.Out)
+            .start();
         });
       }
+
+      // Tweening support
+      import TWEEN from 'https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js';
+      renderer.setAnimationLoop(() => {
+        TWEEN.update();
+        renderer.render(scene, camera);
+      });
     </script>
   </body>
 </html>
