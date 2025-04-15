@@ -86,14 +86,14 @@
             const localPoint = intersect.point.clone().sub(centralSphere.position).normalize();
             const lobePos = centralSphere.position.clone().add(localPoint.multiplyScalar(lobeDistance));
             createLobe(lobePos);
-            repelLobes3D();
+            repelLobes();
           } else if (intersect.object.userData.isLobe) {
             // Remove the tapped lobe
             const index = lobes.indexOf(intersect.object);
             if (index > -1) {
               scene.remove(lobes[index]);
               lobes.splice(index, 1);
-              repelLobes3D();
+              repelLobes();
             }
           }
         }
@@ -103,20 +103,18 @@
         // no-op
       }
 
-      function repelLobes3D() {
+      function repelLobes() {
         const count = lobes.length;
-        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+        const angleStep = (Math.PI * 2) / count;
 
         lobes.forEach((lobe, i) => {
-          const theta = goldenAngle * i;
-          const y = 1 - (i / (count - 1)) * 2; // y from 1 to -1
-          const radius = Math.sqrt(1 - y * y); // radius at y
+          const angle = i * angleStep;
+          const x = Math.cos(angle) * lobeDistance;
+          const y = Math.sin(angle) * lobeDistance * 0.6;
+          const z = Math.sin(angle) * lobeDistance;
 
-          const x = Math.cos(theta) * radius;
-          const z = Math.sin(theta) * radius;
-
-          const position = new THREE.Vector3(x, y, z).multiplyScalar(lobeDistance);
-          lobe.position.copy(centralSphere.position.clone().add(position));
+          const newPos = centralSphere.position.clone().add(new THREE.Vector3(x, y, z));
+          lobe.position.copy(newPos);
         });
       }
     </script>
