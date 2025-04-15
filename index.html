@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AR Block Snap Builder</title>
+    <title>AR Sphere with Repelling Lobes</title>
     <style>
       body { margin: 0; overflow: hidden; }
       canvas { display: block; }
@@ -15,10 +15,10 @@
       import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
 
       let scene, camera, renderer, controller;
-      const cubes = [];
-      const cubeSize = 0.1;
-      let ghostCube = null;
-      let lastSnapPosition = null;
+      const lobes = [];
+      const lobeDistance = 0.15;
+      const sphereRadius = 0.1;
+      let centralSphere;
 
       const raycaster = new THREE.Raycaster();
       const tap = new THREE.Vector2();
@@ -49,66 +49,73 @@
           renderer.render(scene, camera);
         });
 
-        // First cube on floor for demo
-        const firstCube = createCube(new THREE.Vector3(0, 0, -0.5));
-        scene.add(firstCube);
-        cubes.push(firstCube);
+        // Add central sphere
+        centralSphere = createSphere(new THREE.Vector3(0, 0, -0.5), 0x3366ff);
+        scene.add(centralSphere);
       }
 
-      function createCube(position, transparent = false) {
-        const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-        const material = new THREE.MeshStandardMaterial({
-          color: transparent ? 0x00ff00 : Math.random() * 0xffffff,
-          transparent: transparent,
-          opacity: transparent ? 0.5 : 1
-        });
-        const cube = new THREE.Mesh(geometry, material);
-        cube.position.copy(position);
-        return cube;
+      function createSphere(position, color = 0xff0000, radius = sphereRadius) {
+        const geometry = new THREE.SphereGeometry(radius, 32, 32);
+        const material = new THREE.MeshStandardMaterial({ color });
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.position.copy(position);
+        return sphere;
+      }
+
+      function createLobe(position) {
+        const lobe = createSphere(position, 0xff6699, 0.05);
+        lobe.userData.isLobe = true;
+        scene.add(lobe);
+        lobes.push(lobe);
       }
 
       function onClick(event) {
         if (!renderer.xr.isPresenting) return;
 
-        const session = renderer.xr.getSession();
-        const viewerSpace = renderer.xr.getCamera().matrixWorld;
-
-        // Convert screen click to normalized device coordinates
         tap.x = (event.clientX / window.innerWidth) * 2 - 1;
         tap.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
         raycaster.setFromCamera(tap, camera);
-        const intersects = raycaster.intersectObjects(cubes);
+        const intersects = raycaster.intersectObjects([centralSphere, ...lobes]);
 
         if (intersects.length > 0) {
           const intersect = intersects[0];
-          const faceNormal = intersect.face.normal.clone();
-          faceNormal.transformDirection(intersect.object.matrixWorld);
 
-          const newPosition = intersect.object.position.clone().addScaledVector(faceNormal, cubeSize);
-
-          if (!ghostCube) {
-            ghostCube = createCube(newPosition, true);
-            scene.add(ghostCube);
-          } else {
-            ghostCube.position.copy(newPosition);
+          if (intersect.object === centralSphere) {
+            // Add a lobe in the direction of the tap
+            const localPoint = intersect.point.clone().sub(centralSphere.position).normalize();
+            const lobePos = centralSphere.position.clone().add(localPoint.multiplyScalar(lobeDistance));
+            createLobe(lobePos);
+            repelLobes();
+          } else if (intersect.object.userData.isLobe) {
+            // Remove the tapped lobe
+            const index = lobes.indexOf(intersect.object);
+            if (index > -1) {
+              scene.remove(lobes[index]);
+              lobes.splice(index, 1);
+              repelLobes();
+            }
           }
-
-          lastSnapPosition = newPosition;
         }
       }
 
       function onSelect() {
-        if (ghostCube && lastSnapPosition) {
-          const newCube = createCube(lastSnapPosition);
-          scene.add(newCube);
-          cubes.push(newCube);
+        // no-op
+      }
 
-          // Optionally clear the ghostCube
-          scene.remove(ghostCube);
-          ghostCube = null;
-          lastSnapPosition = null;
-        }
+      function repelLobes() {
+        const count = lobes.length;
+        const angleStep = (Math.PI * 2) / count;
+
+        lobes.forEach((lobe, i) => {
+          const angle = i * angleStep;
+          const x = Math.cos(angle) * lobeDistance;
+          const y = Math.sin(angle) * lobeDistance * 0.6;
+          const z = Math.sin(angle) * lobeDistance;
+
+          const newPos = centralSphere.position.clone().add(new THREE.Vector3(x, y, z));
+          lobe.position.copy(newPos);
+        });
       }
     </script>
   </body>
