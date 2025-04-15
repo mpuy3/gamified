@@ -18,8 +18,7 @@
             width: 100vw;
         }
 
-        #addLobeBtn,
-        #addCylinderBtn {
+        #addLobeBtn {
             position: absolute;
             bottom: 10%;
             left: 50%;
@@ -34,18 +33,12 @@
             cursor: pointer;
             display: none;
             pointer-events: auto;
-            margin: 5px;
-        }
-
-        #addCylinderBtn {
-            left: calc(50% + 100px); /* Move cylinder button to the right */
         }
     </style>
 </head>
 
 <body>
     <button id="addLobeBtn">Add Lobe</button>
-    <button id="addCylinderBtn">Add Cylinder</button>
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -53,10 +46,10 @@
         import TWEEN from 'https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js';
 
         let scene, camera, renderer, controller;
-        const domains = []; // Will hold both lobes and cylinders
+        const lobes = [];
         const sphereRadius = 0.1;
         let centralSphere, modelGroup;
-        const domainDistance = 0.15;
+        const lobeDistance = 0.15;
         const raycaster = new THREE.Raycaster();
         const tap = new THREE.Vector2();
 
@@ -98,22 +91,17 @@
             });
 
             const addLobeBtn = document.getElementById('addLobeBtn');
-            const addCylinderBtn = document.getElementById('addCylinderBtn');
+            addLobeBtn.addEventListener('click', createLobe);
 
-            addLobeBtn.addEventListener('click', () => createDomain('lobe'));
-            addCylinderBtn.addEventListener('click', () => createDomain('cylinder'));
-
-            // Ensure buttons show after AR session begins
+            // Ensure button shows after AR session begins
             renderer.xr.addEventListener('sessionstart', () => {
                 setTimeout(() => {
                     addLobeBtn.style.display = 'block';
-                    addCylinderBtn.style.display = 'block';
                 }, 500);
             });
 
             renderer.xr.addEventListener('sessionend', () => {
                 addLobeBtn.style.display = 'none';
-                addCylinderBtn.style.display = 'none';
             });
         }
 
@@ -125,67 +113,57 @@
             return sphere;
         }
 
-        function createDomain(type) {
-            if (domains.length >= 6) return;
+        function createLobe() {
+            if (lobes.length >= 6) return;
 
-            let domain;
-            if (type === 'lobe') {
-                domain = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.035, 16, 16).scale(1, 2.2, 1),
-                    new THREE.MeshStandardMaterial({ color: 0xffff00 }) // yellow lobes
-                );
-                domain.userData.isLobe = true;
-            } else if (type === 'cylinder') {
-                domain = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.02, 0.02, 0.2),
-                    new THREE.MeshStandardMaterial({ color: 0xffffff }) // white cylinders (bonds)
-                );
-                domain.userData.isCylinder = true;
-            }
+            const lobe = new THREE.Mesh(
+                new THREE.SphereGeometry(0.035, 16, 16).scale(1, 2.2, 1),
+                new THREE.MeshStandardMaterial({ color: 0xffff00 }) // yellow lobes
+            );
+            lobe.userData.isLobe = true;
+            lobe.scale.set(0.01, 0.01, 0.01);
+            modelGroup.add(lobe);
+            lobes.push(lobe);
 
-            domain.scale.set(0.01, 0.01, 0.01);
-            modelGroup.add(domain);
-            domains.push(domain);
-
-            new TWEEN.Tween(domain.scale)
+            new TWEEN.Tween(lobe.scale)
                 .to({ x: 1, y: 1, z: 1 }, 300)
                 .easing(TWEEN.Easing.Quadratic.Out)
                 .start();
 
-            updateDomainPositions();
+            updateLobePositions();
         }
 
-        function removeDomain(domain) {
-            const index = domains.indexOf(domain);
+        function removeLobe(lobe) {
+            const index = lobes.indexOf(lobe);
             if (index > -1) {
-                domains.splice(index, 1);
-                new TWEEN.Tween(domain.scale)
+                lobes.splice(index, 1);
+                new TWEEN.Tween(lobe.scale)
                     .to({ x: 0.01, y: 0.01, z: 0.01 }, 300)
                     .easing(TWEEN.Easing.Quadratic.In)
-                    .onComplete(() => modelGroup.remove(domain))
+                    .onComplete(() => modelGroup.remove(lobe))
                     .start();
 
-                updateDomainPositions();
+                updateLobePositions();
             }
         }
 
-        function updateDomainPositions() {
-            const directions = getDomainDirections(domains.length);
+        function updateLobePositions() {
+            const directions = getLobeDirections(lobes.length);
 
-            domains.forEach((domain, i) => {
+            lobes.forEach((lobe, i) => {
                 const dir = directions[i];
-                const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(domainDistance));
-                new TWEEN.Tween(domain.position)
+                const pos = centralSphere.position.clone().add(dir.clone().multiplyScalar(lobeDistance));
+                new TWEEN.Tween(lobe.position)
                     .to({ x: pos.x, y: pos.y, z: pos.z }, 300)
                     .easing(TWEEN.Easing.Quadratic.Out)
                     .start();
 
                 const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-                domain.quaternion.copy(quat);
+                lobe.quaternion.copy(quat);
             });
         }
 
-        function getDomainDirections(count) {
+        function getLobeDirections(count) {
             const up = new THREE.Vector3(0, 1, 0);
             const directions = [];
 
@@ -224,12 +202,12 @@
             tap.x = (event.clientX / window.innerWidth) * 2 - 1;
             tap.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(tap, camera);
-            const intersects = raycaster.intersectObjects([centralSphere, ...domains]);
+            const intersects = raycaster.intersectObjects([centralSphere, ...lobes]);
 
             if (intersects.length > 0) {
                 const intersect = intersects[0];
-                if (intersect.object.userData.isLobe || intersect.object.userData.isCylinder) {
-                    removeDomain(intersect.object);
+                if (intersect.object.userData.isLobe) {
+                    removeLobe(intersect.object);
                 }
             }
         }
