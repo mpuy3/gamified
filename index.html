@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AR Block Snap Builder</title>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+      import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
+
+      let scene, camera, renderer, controller;
+      const cubes = [];
+      const cubeSize = 0.1;
+      let ghostCube = null;
+      let lastSnapPosition = null;
+
+      const raycaster = new THREE.Raycaster();
+      const tap = new THREE.Vector2();
+
+      init();
+
+      function init() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.xr.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+
+        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+        scene.add(light);
+
+        controller = renderer.xr.getController(0);
+        controller.addEventListener('select', onSelect);
+        scene.add(controller);
+
+        window.addEventListener('click', onClick);
+
+        renderer.setAnimationLoop(() => {
+          renderer.render(scene, camera);
+        });
+
+        // First cube on floor for demo
+        const firstCube = createCube(new THREE.Vector3(0, 0, -0.5));
+        scene.add(firstCube);
+        cubes.push(firstCube);
+      }
+
+      function createCube(position, transparent = false) {
+        const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const material = new THREE.MeshStandardMaterial({
+          color: transparent ? 0x00ff00 : Math.random() * 0xffffff,
+          transparent: transparent,
+          opacity: transparent ? 0.5 : 1
+        });
+        const cube = new THREE.Mesh(geometry, material);
+        cube.position.copy(position);
+        return cube;
+      }
+
+      function onClick(event) {
+        if (!renderer.xr.isPresenting) return;
+
+        const session = renderer.xr.getSession();
+        const viewerSpace = renderer.xr.getCamera().matrixWorld;
+
+        // Convert screen click to normalized device coordinates
+        tap.x = (event.clientX / window.innerWidth) * 2 - 1;
+        tap.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(tap, camera);
+        const intersects = raycaster.intersectObjects(cubes);
+
+        if (intersects.length > 0) {
+          const intersect = intersects[0];
+          const faceNormal = intersect.face.normal.clone();
+          faceNormal.transformDirection(intersect.object.matrixWorld);
+
+          const newPosition = intersect.object.position.clone().addScaledVector(faceNormal, cubeSize);
+
+          if (!ghostCube) {
+            ghostCube = createCube(newPosition, true);
+            scene.add(ghostCube);
+          } else {
+            ghostCube.position.copy(newPosition);
+          }
+
+          lastSnapPosition = newPosition;
+        }
+      }
+
+      function onSelect() {
+        if (ghostCube && lastSnapPosition) {
+          const newCube = createCube(lastSnapPosition);
+          scene.add(newCube);
+          cubes.push(newCube);
+
+          // Optionally clear the ghostCube
+          scene.remove(ghostCube);
+          ghostCube = null;
+          lastSnapPosition = null;
+        }
+      }
+    </script>
+  </body>
+</html>
