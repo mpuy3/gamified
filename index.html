@@ -15,7 +15,7 @@
       import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
       import TWEEN from 'https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js';
 
-      let scene, camera, renderer, controller;
+      let scene, camera, renderer, controller, touchStartRotation, touchStartPosition;
       const lobes = [];
       const lobeDistance = 0.15;
       const sphereRadius = 0.1;
@@ -23,9 +23,6 @@
 
       const raycaster = new THREE.Raycaster();
       const tap = new THREE.Vector2();
-
-      let rotationEnabled = false;
-      let lastTouchPosition = new THREE.Vector2();
 
       init();
 
@@ -48,6 +45,9 @@
         scene.add(controller);
 
         window.addEventListener('click', onClick);
+        window.addEventListener('touchstart', onTouchStart, { passive: true });
+        window.addEventListener('touchmove', onTouchMove, { passive: true });
+        window.addEventListener('touchend', onTouchEnd, { passive: true });
 
         renderer.setAnimationLoop(() => {
           TWEEN.update();
@@ -57,10 +57,6 @@
         // Add central sphere
         centralSphere = createSphere(new THREE.Vector3(0, 0, -0.5), 0x3366ff);
         scene.add(centralSphere);
-
-        // Add touch event listeners for rotating the model
-        renderer.xr.addEventListener('selectstart', onSelectStart);
-        renderer.xr.addEventListener('selectend', onSelectEnd);
       }
 
       function createSphere(position, color = 0xff0000, radius = sphereRadius) {
@@ -106,7 +102,7 @@
         if (intersects.length > 0) {
           const intersect = intersects[0];
 
-          if (intersect.object === centralSphere && lobes.length < 8) {
+          if (intersect.object === centralSphere && lobes.length < 6) {
             const localPoint = intersect.point.clone().sub(centralSphere.position).normalize();
             const lobePos = centralSphere.position.clone().add(localPoint.clone().multiplyScalar(lobeDistance));
             createLobe(lobePos, localPoint);
@@ -133,18 +129,103 @@
         // no-op
       }
 
+      function onTouchStart(event) {
+        if (event.touches.length === 2) {
+          touchStartRotation = camera.rotation.clone();
+          touchStartPosition = new THREE.Vector2(event.touches[0].clientX, event.touches[0].clientY);
+        }
+      }
+
+      function onTouchMove(event) {
+        if (event.touches.length === 2) {
+          const touchMovePosition = new THREE.Vector2(event.touches[0].clientX, event.touches[0].clientY);
+          const delta = touchMovePosition.clone().sub(touchStartPosition);
+          const rotationFactor = 0.005;
+
+          camera.rotation.set(
+            touchStartRotation.x - delta.y * rotationFactor,
+            touchStartRotation.y + delta.x * rotationFactor,
+            0
+          );
+
+          event.preventDefault();
+        }
+      }
+
+      function onTouchEnd(event) {
+        if (event.touches.length < 2) {
+          touchStartRotation = null;
+          touchStartPosition = null;
+        }
+      }
+
       function repelLobes3D() {
         const count = lobes.length;
         if (count === 0) return;
 
-        // Fix angle distribution for fewer lobes (e.g., two lobes)
         lobes.forEach((lobe, i) => {
-          const phi = count > 2 ? Math.acos(-1 + (2 * (i + 1)) / (count + 1)) : Math.PI * i / (count / 2);  // Evenly spaced for low counts
-          const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 1); // golden angle
+          let x, y, z;
 
-          const x = Math.cos(theta) * Math.sin(phi);
-          const y = Math.sin(theta) * Math.sin(phi);
-          const z = Math.cos(phi);
+          if (count === 1) {
+            x = Math.PI * i;
+            y = 0;
+            z = 0;
+          } else if (count === 2) {
+            // Two lobes placed parallel to the ground
+            x = Math.cos(i * Math.PI);
+            y = Math.sin(i * Math.PI);
+            z = 0;
+          } else if (count === 3) {
+            // Three lobes evenly spaced in a plane (120 degrees apart), one perpendicular to the ground
+            const angle = (2 * Math.PI) / 3;
+            x = Math.cos(i * angle);
+            y = Math.sin(i * angle);
+            z = (i === 0) ? 1 : 0; // First lobe is perpendicular to the ground
+          } else if (count === 4) {
+            // Four lobes in a tetrahedral configuration, spaced 109.5 degrees apart
+            const angle = Math.PI * (i === 0 ? 1 : 0);
+            const radius = Math.sin(Math.PI / 3);
+            const height = Math.cos(Math.PI / 3);
+            const base = Math.cos(Math.PI / 3);
+
+            if (i === 0) {
+              x = 0;
+              y = height;
+              z = 0;
+            } else if (i === 1) {
+              x = -radius;
+              y = -base;
+              z = 0;
+            } else if (i === 2) {
+              x = radius;
+              y = -base;
+              z = 0;
+            } else {
+              x = 0;
+              y = -height;
+              z = 0;
+            }
+          } else if (count === 5) {
+            // Five lobes: three in a plane, 120 degrees apart; two above/below (90 degrees away)
+            if (i < 3) {
+              const angle = (2 * Math.PI) / 3;
+              x = Math.cos(i * angle);
+              y = Math.sin(i * angle);
+              z = 0;
+            } else {
+              // Place two lobes above and below
+              const angle = Math.PI * (i === 3 ? 1 : -1);
+              x = 0;
+              y = Math.cos(angle);
+              z = Math.sin(angle);
+            }
+          } else if (count === 6) {
+            // Six lobes evenly spaced in a circle (90 degrees apart)
+            const angle = (2 * Math.PI) / 6;
+            x = Math.cos(i * angle);
+            y = Math.sin(i * angle);
+            z = 0;
+          }
 
           const direction = new THREE.Vector3(x, y, z).normalize();
           const targetPos = centralSphere.position.clone().add(direction.clone().multiplyScalar(lobeDistance));
@@ -160,38 +241,6 @@
           lobe.quaternion.copy(quat);
         });
       }
-
-      function onSelectStart(event) {
-        if (event.data && event.data.originalEvent && event.data.originalEvent.touches && event.data.originalEvent.touches.length === 2) {
-          rotationEnabled = true;
-          lastTouchPosition.set(event.data.originalEvent.touches[0].clientX, event.data.originalEvent.touches[0].clientY);
-        }
-      }
-
-      function onSelectEnd(event) {
-        rotationEnabled = false;
-      }
-
-      renderer.xr.getController(0).addEventListener('select', function (event) {
-        if (rotationEnabled) {
-          const touchPosition = new THREE.Vector2(
-            event.data.originalEvent.touches[0].clientX,
-            event.data.originalEvent.touches[0].clientY
-          );
-
-          const deltaX = touchPosition.x - lastTouchPosition.x;
-          const deltaY = touchPosition.y - lastTouchPosition.y;
-
-          if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
-            const rotationSpeed = 0.005;
-            centralSphere.rotation.y += deltaX * rotationSpeed;
-            centralSphere.rotation.x += deltaY * rotationSpeed;
-          }
-
-          lastTouchPosition.set(touchPosition.x, touchPosition.y);
-        }
-      });
-
     </script>
   </body>
 </html>
