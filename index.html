@@ -24,6 +24,9 @@
       const raycaster = new THREE.Raycaster();
       const tap = new THREE.Vector2();
 
+      let rotationEnabled = false;
+      let lastTouchPosition = new THREE.Vector2();
+
       init();
 
       function init() {
@@ -54,6 +57,10 @@
         // Add central sphere
         centralSphere = createSphere(new THREE.Vector3(0, 0, -0.5), 0x3366ff);
         scene.add(centralSphere);
+
+        // Add touch event listeners for rotating the model
+        renderer.xr.addEventListener('selectstart', onSelectStart);
+        renderer.xr.addEventListener('selectend', onSelectEnd);
       }
 
       function createSphere(position, color = 0xff0000, radius = sphereRadius) {
@@ -130,10 +137,10 @@
         const count = lobes.length;
         if (count === 0) return;
 
+        // Fix angle distribution for fewer lobes (e.g., two lobes)
         lobes.forEach((lobe, i) => {
-          const index = i + 1;
-          const phi = Math.acos(-1 + (2 * index) / (count + 1));
-          const theta = Math.PI * (1 + Math.sqrt(5)) * index; // golden angle
+          const phi = count > 2 ? Math.acos(-1 + (2 * (i + 1)) / (count + 1)) : Math.PI * i / (count / 2);  // Evenly spaced for low counts
+          const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 1); // golden angle
 
           const x = Math.cos(theta) * Math.sin(phi);
           const y = Math.sin(theta) * Math.sin(phi);
@@ -153,6 +160,38 @@
           lobe.quaternion.copy(quat);
         });
       }
+
+      function onSelectStart(event) {
+        if (event.data && event.data.originalEvent && event.data.originalEvent.touches && event.data.originalEvent.touches.length === 2) {
+          rotationEnabled = true;
+          lastTouchPosition.set(event.data.originalEvent.touches[0].clientX, event.data.originalEvent.touches[0].clientY);
+        }
+      }
+
+      function onSelectEnd(event) {
+        rotationEnabled = false;
+      }
+
+      renderer.xr.getController(0).addEventListener('select', function (event) {
+        if (rotationEnabled) {
+          const touchPosition = new THREE.Vector2(
+            event.data.originalEvent.touches[0].clientX,
+            event.data.originalEvent.touches[0].clientY
+          );
+
+          const deltaX = touchPosition.x - lastTouchPosition.x;
+          const deltaY = touchPosition.y - lastTouchPosition.y;
+
+          if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+            const rotationSpeed = 0.005;
+            centralSphere.rotation.y += deltaX * rotationSpeed;
+            centralSphere.rotation.x += deltaY * rotationSpeed;
+          }
+
+          lastTouchPosition.set(touchPosition.x, touchPosition.y);
+        }
+      });
+
     </script>
   </body>
 </html>
