@@ -156,11 +156,11 @@
                     new THREE.SphereGeometry(0.1 * sphereRadius, 16, 16),
                     new THREE.MeshStandardMaterial({ color: 0x000000 })
                 );
-                innerSphere1.position.set(-0.01, 0, 0);
+                innerSphere1.position.set(-0.005, 0, 0);
 
                 // Inner sphere 2 (black solid)
                 const innerSphere2 = innerSphere1.clone();
-                innerSphere2.position.set(0.01, 0, 0);
+                innerSphere2.position.set(0.005, 0, 0);
 
                 // Add them to the domain mesh
                 domain.add(innerSphere1);
