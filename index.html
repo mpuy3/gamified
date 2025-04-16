@@ -54,7 +54,6 @@
         <button id="addLobeBtn">Add Lone Pair</button>
         <button id="addCylinderBtn">Add Bond</button>
     </div>
-    <canvas></canvas>
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -63,9 +62,9 @@
 
         let scene, camera, renderer, controller;
         const domains = []; // Will hold both lobes and cylinders
-        const sphereRadius = 0.1;
+        const sphereRadius = 0.067;
         let centralSphere, modelGroup;
-        const domainDistance = 0.15;
+        const domainDistance = 0.1;
         const raycaster = new THREE.Raycaster();
         const tap = new THREE.Vector2();
 
