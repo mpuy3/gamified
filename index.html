@@ -101,6 +101,7 @@
             modelGroup.add(centralSphere);
 
             renderer.setAnimationLoop(() => {
+
                 TWEEN.update();
                 renderer.render(scene, camera);
             });
@@ -148,42 +149,43 @@
 
                 // Inner sphere 1 (black solid)
                 const innerSphere1 = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.002, 16, 16),
+                    new THREE.SphereGeometry(0.1 * sphereRadius, 16, 16),
                     new THREE.MeshStandardMaterial({ color: 0x000000 })
                 );
-                innerSphere1.position.set(0.003, 0.01, 0);
+                innerSphere1.position.set(-0.01, 0, 0);
 
                 // Inner sphere 2 (black solid)
                 const innerSphere2 = innerSphere1.clone();
-                innerSphere2.position.set(-0.003, -0.01, 0);
+                innerSphere2.position.set(0.01, 0, 0);
 
                 // Add them to the domain mesh
                 domain.add(innerSphere1);
                 domain.add(innerSphere2);
 
-                domain.userData.animate = () => {
-                    const t = performance.now() * 0.002;
-                    innerSphere1.position.x = 0.003 + 0.001 * Math.sin(t);
-                    innerSphere1.position.y = 0.01 + 0.001 * Math.cos(t);
-                    innerSphere2.position.x = -0.003 + 0.001 * Math.sin(t + Math.PI);
-                    innerSphere2.position.y = -0.01 + 0.001 * Math.cos(t + Math.PI);
-                };
-                
                 domain.userData.isLobe = true;
             } else if (type === 'cylinder') {
                 domain = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.2 * sphereRadius, 0.2 * sphereRadius, sphereRadius),
+                    new THREE.CylinderGeometry(0.2 * sphereRadius, 0.2 * sphereRadius, 2*sphereRadius),
                     new THREE.MeshStandardMaterial({ color: 0xffffff }) // white cylinders (bonds)
                 );
+
+                // Surrounding atom
+                const surroundingAtom = new THREE.Mesh(
+                    new THREE.SphereGeometry(sphereRadius, 16, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x0000FF })
+                );
+                surroundingAtom.position.set(0, 2*sphereRadius, 0);
+                domain.add(surroundingAtom);
+
                 domain.userData.isCylinder = true;
             }
 
-            domain.scale.set(0.01, 0.01, 0.01);
+            // domain.scale.set(0.01, 0.01, 0.01);
             modelGroup.add(domain);
             domains.push(domain);
 
             new TWEEN.Tween(domain.scale)
-                .to({ x: 1, y: 1, z: 1 }, 300)
+                .to({ x: 1, y: 1, z: 1 }, 500)
                 .easing(TWEEN.Easing.Quadratic.Out)
                 .start();
 
@@ -278,7 +280,7 @@
                     const dy = e.touches[0].clientY - prevTouches[0].clientY;
 
                     const angle = dx * 0.01;
-                    modelGroup.rotateY(angle);
+                    modelGroup.rotateOnAxis(modelGroup[centralSphere].position.normalize, angle);
                 }
                 prevTouches = [...e.touches];
             });
