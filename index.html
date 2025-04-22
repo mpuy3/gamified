@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<script src="https://launchar.app/sdk/v1?key=6M9WDbAJYlGTe3JHDmpkSawjz15UegpK&redirect=true"></script>
 
 <head>
     <meta charset="UTF-8" />
@@ -95,11 +96,11 @@
             setupTouchRotation();
 
             modelGroup = new THREE.Group();
-            
+
 
             centralSphere = createSphere(new THREE.Vector3(0, 0, -0.5), 0xff0000); // red central atom
             modelGroup.add(centralSphere);
-            
+
             // modelGroup.mesh.position(centralSphere.getWorldPosition);
 
             scene.add(modelGroup);
@@ -169,7 +170,7 @@
                 domain.userData.isLobe = true;
             } else if (type === 'cylinder') {
                 domain = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.2 * sphereRadius, 0.2 * sphereRadius, 2*sphereRadius),
+                    new THREE.CylinderGeometry(0.2 * sphereRadius, 0.2 * sphereRadius, 2 * sphereRadius),
                     new THREE.MeshStandardMaterial({ color: 0xffffff }) // white cylinders (bonds)
                 );
 
@@ -178,7 +179,7 @@
                     new THREE.SphereGeometry(sphereRadius, 16, 16),
                     new THREE.MeshStandardMaterial({ color: 0x0000FF })
                 );
-                surroundingAtom.position.set(0, 2*sphereRadius, 0);
+                surroundingAtom.position.set(0, 2 * sphereRadius, 0);
                 domain.add(surroundingAtom);
 
                 domain.userData.isCylinder = true;
